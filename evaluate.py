@@ -187,8 +187,8 @@ if __name__ == '__main__':
     parser.add_argument('--filenames_file_eval',
                         default="./train_test_inputs/nyudepthv2_test_files_with_gt.txt",
                         type=str, help='path to the filenames text file for online evaluation')
-    parser.add_argument('--checkpoint_path', '--checkpoint-path', type=str, required=True,
-                        help="checkpoint file to use for prediction")
+    # parser.add_argument('--checkpoint_path', '--checkpoint-path', type=str, required=True,
+    #                    help="checkpoint file to use for prediction")
 
     parser.add_argument('--min_depth_eval', type=float, help='minimum depth for evaluation', default=1e-3)
     parser.add_argument('--max_depth_eval', type=float, help='maximum depth for evaluation', default=10)
@@ -209,7 +209,7 @@ if __name__ == '__main__':
     test = DepthDataLoader(args, 'online_eval').data
     model = UnetAdaptiveBins.build(n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth,
                                    norm='linear').to(device)
-    model = model_io.load_checkpoint(args.checkpoint_path, model)[0]
+    #model = model_io.load_checkpoint(args.checkpoint_path, model)[0]
     model = model.eval()
 
     eval(model, test, args, gpus=[device])

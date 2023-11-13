@@ -229,7 +229,6 @@ class DataLoadPreprocess(Dataset):
     def __len__(self):
         return len(self.filenames)
 
-
 class ToTensor(object):
     def __init__(self, mode):
         self.mode = mode
