@@ -19,6 +19,7 @@ import pandas as pd
 
 def compute_errors(gt, pred):
     thresh = np.maximum((gt / pred), (pred / gt))
+    
     a1 = (thresh < 1.25).mean()
     a2 = (thresh < 1.25 ** 2).mean()
     a3 = (thresh < 1.25 ** 3).mean()
@@ -28,7 +29,6 @@ def compute_errors(gt, pred):
 
     rmse = (gt - pred) ** 2
     rmse = np.sqrt(rmse.mean())
-
     rmse_log = (np.log(gt) - np.log(pred)) ** 2
     rmse_log = np.sqrt(rmse_log.mean())
 
@@ -36,6 +36,7 @@ def compute_errors(gt, pred):
     silog = np.sqrt(np.mean(err ** 2) - np.mean(err) ** 2) * 100
 
     log_10 = (np.abs(np.log10(gt) - np.log10(pred))).mean()
+
     return dict(a1=a1, a2=a2, a3=a3, abs_rel=abs_rel, rmse=rmse, log_10=log_10, rmse_log=rmse_log,
                 silog=silog, sq_rel=sq_rel)
 
@@ -46,11 +47,27 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
             if impath[0] == '/':
                 impath = impath[1:]
             factor = 1000.
+            norm_vmin = 0
+            norm_vmax = 5000
+            if args.dataset_kind == 'test':
+                error_vmin = -2000
+                error_vmax = 2000
+            else:
+                error_vmin = -1000
+                error_vmax = 1000
         else:
             dpath = impath.split('/')
             impath = dpath[1] + "_" + dpath[-1]
             impath = impath.split('.')[0]
             factor = 256.
+            norm_vmin = 0
+            norm_vmax = 20000
+            if args.dataset_kind == 'test':
+                error_vmin = -1000
+                error_vmax = 1000
+            else:
+                error_vmin = -500
+                error_vmax = 500
         
         pred_path = os.path.join(args.save_dir, impath)
         pred = (final * factor).astype('uint16')
@@ -63,23 +80,30 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         img = denormalized_image.clip(0, 255)
         #pred_map
         pred_cmap = plt.get_cmap('plasma')
-        pred_norm = Normalize(vmin=0, vmax=5000)
+        pred_norm = Normalize(vmin=norm_vmin, vmax=norm_vmax)
         
         
         #gt_map
         valid_map = np.ones_like(gt)
         valid_map[validmask==False] = np.NaN
-        
-        gt_map = (gt*factor)*valid_map
+        if args.dataset == 'nyu':
+            gt_map = (gt*factor)*valid_map
+        else:
+            gt_map = (gt*factor)
         gt_cmap = plt.get_cmap('plasma')
         gt_cmap.set_bad(color="Black")
-        gt_norm = Normalize(vmin=0, vmax=5000)
+        gt_norm = Normalize(vmin=norm_vmin, vmax=norm_vmax)
         
         # error map
         error_cmap = plt.get_cmap("RdBu")
-        error_cmap.set_bad(color="Black")
-        error_norm = Normalize(vmin=-2000, vmax=2000)
-        error_map = (pred - gt*factor)*valid_map
+        error_norm = Normalize(vmin=error_vmin, vmax=error_vmax)
+        
+        if args.dataset == 'nyu':
+            error_cmap.set_bad(color="Black")
+            error_map = (pred - gt*factor)*valid_map
+        else:
+            error_cmap.set_bad(color="White", alpha = 1.0)
+            error_map = (pred - gt*factor)*valid_map
         
         # bins
         flt = gt[validmask].flatten()
@@ -109,44 +133,50 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         metric_dict["path"] = pred_path
         
         # plot
-        fig = plt.figure(figsize= (15,10))
+        if args.dataset == 'nyu':
+            fig = plt.figure(figsize= (15,14))
+        else:
+            fig = plt.figure(figsize= (50,28))
+        
         
         # RGB
-        plt.subplot(3, 3, 1)
+        plt.subplot(4, 3, 1)
         plt.imshow((img * 255).astype(np.uint8))
         plt.title("RGB image")
 
-        # pred
-        plt.subplot(3, 3, 2)
+        # pred_norm
+        plt.subplot(4, 3, 2)
         plt.imshow(pred, cmap=pred_cmap, norm=pred_norm)
         plt.colorbar()
-        plt.title("Pred depth")
+        plt.title(f"Pred depth_norm({norm_vmin},{norm_vmax})")
 
-        # GT
-        plt.subplot(3, 3, 3)
+        # GT_norm
+        plt.subplot(4, 3, 3)
         plt.imshow(gt_map, cmap=gt_cmap, norm=gt_norm)
         plt.colorbar()
-        plt.title("Ground Truth")
+        plt.title(f"Ground Truth_norm({norm_vmin},{norm_vmax})")
 
         # Error_map
-        plt.subplot(3, 3, 4)
+        plt.subplot(4, 3, 4)
         plt.imshow(error_map, cmap=error_cmap, norm=error_norm)
         plt.colorbar()
         plt.title("Error map (pred - gt)")
         plt.text
 
-        plt.subplot(3, 3, 5)
-        plt.text(0.1,0.1,
-                 f"a1: {metric_dict['a1']}\na2: {metric_dict['a2']}\na3: {metric_dict['a3']}\
-                 \nrmse_log: {metric_dict['rmse_log']}\nrmse: {metric_dict['rmse']}", fontsize=16)
-        plt.axis("off")
-        plt.subplot(3, 3, 6)
-        plt.text(0.1,0.1,
-                 f"log_10: {metric_dict['log_10']}\nabs_rel: {metric_dict['abs_rel']}\nsilog: {metric_dict['silog']}\
-                 \nsq_rel: {metric_dict['sq_rel']}\ncham_dist: {metric_dict['cham_dist']}", fontsize=16)
-        plt.axis("off")
+        # pred
+        plt.subplot(4, 3, 5)
+        plt.imshow(pred, cmap=pred_cmap)
+        plt.colorbar()
+        plt.title("Pred depth")
+
+        # GT
+        plt.subplot(4, 3, 6)
+        plt.imshow(gt_map, cmap=gt_cmap)
+        plt.colorbar()
+        plt.title("Ground Truth")
+        
         # pred_bins hist
-        plt.subplot(3, 3, 7)
+        plt.subplot(4, 3, 7)
         n, bins_stand, patches = plt.hist(flt, bins = bin_hist, rwidth = 0.9)
         cm = plt.get_cmap("viridis")
         min_value = np.min(bins_stand)
@@ -158,7 +188,7 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         plt.title("Depth hist. with Adabins")
 
         # uniform_bins hist
-        plt.subplot(3, 3, 8)
+        plt.subplot(4, 3, 8)
         n, bins, patches = plt.hist(flt, bins = 64)
         bins_nom = [x / min_max_stand for x in bins]
         for c, p in zip(bins_nom, patches):
@@ -167,12 +197,24 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         plt.title("Depth hist. with uniform bins")
         
         # bins hist
-        plt.subplot(3, 3, 9)
+        plt.subplot(4, 3, 9)
         n, bins, patches = plt.hist(bin_hist, bins=20)
         bins_nom = [x / min_max_stand for x in bins]
         for c, p in zip(bins_nom, patches):
             plt.setp(p, 'facecolor', cm(c))
         plt.title("Hist. of  Adabins")
+        
+        # metrics
+        plt.subplot(4, 3, 10)
+        plt.text(0.1,0.1,
+                 f"a1: {metric_dict['a1']}\na2: {metric_dict['a2']}\na3: {metric_dict['a3']}\
+                 \nrmse_log: {metric_dict['rmse_log']}\nrmse: {metric_dict['rmse']}", fontsize=16)
+        plt.axis("off")
+        plt.subplot(4, 3, 11)
+        plt.text(0.1,0.1,
+                 f"log_10: {metric_dict['log_10']}\nabs_rel: {metric_dict['abs_rel']}\nsilog: {metric_dict['silog']}\
+                 \nsq_rel: {metric_dict['sq_rel']}\ncham_dist: {metric_dict['cham_dist']}", fontsize=16)
+        plt.axis("off")
         
         # save
         if not os.path.exists(os.path.dirname(pred_path)):
@@ -222,13 +264,12 @@ def eval(model, test_loader, args, gpus=None, ):
     metrics = RunningAverageDict()
     # crop_size = (471 - 45, 601 - 41)
     # bins = utils.get_bins(100)
-    total_invalid = 0
     with torch.no_grad():
         model.eval()
 
         sequential = test_loader
         for batch in tqdm(sequential):
-
+            batch_size = len(batch['focal'])
             image = batch['image'].to(device)
             gt = batch['depth'].to(device)
             final, bins = predict_tta(model, image, args)
@@ -239,41 +280,46 @@ def eval(model, test_loader, args, gpus=None, ):
             final[np.isinf(final)] = args.max_depth
             final[np.isnan(final)] = args.min_depth
 
-            if 'has_valid_depth' in batch:
-                if not batch['has_valid_depth']:
-                    # print("Invalid ground truth")
-                    total_invalid += 1
-                    continue
-
             gt = gt.squeeze().cpu().numpy()
             valid_mask = np.logical_and(gt > args.min_depth, gt < args.max_depth)
 
             if args.garg_crop or args.eigen_crop:
-                gt_height, gt_width = gt.shape
+                _, gt_height, gt_width = gt.shape
                 eval_mask = np.zeros(valid_mask.shape)
 
                 if args.garg_crop:
-                    eval_mask[int(0.40810811 * gt_height):int(0.99189189 * gt_height),
+                    eval_mask[:,int(0.40810811 * gt_height):int(0.99189189 * gt_height),
                     int(0.03594771 * gt_width):int(0.96405229 * gt_width)] = 1
 
                 elif args.eigen_crop:
                     if args.dataset == 'kitti':
-                        eval_mask[int(0.3324324 * gt_height):int(0.91351351 * gt_height),
+                        eval_mask[:,int(0.3324324 * gt_height):int(0.91351351 * gt_height),
                         int(0.0359477 * gt_width):int(0.96405229 * gt_width)] = 1
                     else:
-                        eval_mask[45:471, 41:601] = 1
+                        eval_mask[:,45:471, 41:601] = 1
+                        
             valid_mask = np.logical_and(valid_mask, eval_mask)
             #             gt = gt[valid_mask]
             #             final = final[valid_mask]
-            metric = compute_errors(gt[valid_mask], final[valid_mask])
-            metrics.update(metric)
+            image_np = image.cpu().numpy()
+            bins_np = bins.cpu().numpy()
+            gt_s = np.split(gt, batch_size, axis = 0)
+            final_s = np.split(final, batch_size, axis = 0)
+            valid_mask_s = np.split(valid_mask, batch_size, axis = 0)
+            image_s = np.split(image_np, batch_size, axis = 0)
+            bins_s = np.split(bins_np, batch_size, axis = 0)
             
-            metric_dict = viz(batch["image_path"][0], image.cpu().numpy(), final, gt, valid_mask, bins.cpu().numpy(), metric)
-            df = pd.concat([df, pd.DataFrame.from_dict([metric_dict])])
-            
-    print(f"Total invalid: {total_invalid}")
+            for gt_i, final_i, valid_mask_i, image_i, bins_i, path in zip(gt_s, final_s, valid_mask_s, image_s, bins_s, batch["image_path"]):
+                metric = compute_errors(gt_i[valid_mask_i], final_i[valid_mask_i])
+                metrics.update(metric)
+                metric_dict = viz(path, image_i, final_i.squeeze(), gt_i.squeeze(), valid_mask_i.squeeze(), bins_i, metric)
+                df = pd.concat([df, pd.DataFrame.from_dict([metric_dict])])
+                
     metrics = {k: round(v, 3) for k, v in metrics.get_value().items()}
     print(f"Metrics: {metrics}")
+    f = open(os.path.join(args.save_dir, "metric.txt"), 'w')
+    print(f"Metrics: {metrics}", file=f)
+    f.close()
     
     df.to_csv(os.path.join(args.save_dir, "metric.csv"), index=False)
 
@@ -332,6 +378,9 @@ if __name__ == '__main__':
     parser.add_argument('--eigen_crop', help='if set, crops according to Eigen NIPS14', action='store_true')
     parser.add_argument('--garg_crop', help='if set, crops according to Garg  ECCV16', action='store_true')
     parser.add_argument('--do_kb_crop', help='Use kitti benchmark cropping', action='store_true')
+    parser.add_argument('--bs', default=16, type=int, help='batch size')
+    parser.add_argument("--workers", default=11, type=int, help="Number of workers for data loading")
+    parser.add_argument("--dataset_kind", default=11, type=str, help="dataset category for EDA")
 
     if sys.argv.__len__() == 2:
         arg_filename_with_prefix = '@' + sys.argv[1]
@@ -339,8 +388,8 @@ if __name__ == '__main__':
     else:
         args = parser.parse_args()
 
-    import pprint
-    pprint.pprint(args)
+    args.batch_size = args.bs
+    args.num_threads = args.workers
     
     # args = parser.parse_args()
     args.gpu = int(args.gpu) if args.gpu is not None else 0
