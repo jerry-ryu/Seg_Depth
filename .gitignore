@@ -8,3 +8,6 @@ wandb/
 checkpoints/
 pretrained/
 
+predictions_*/
+test_imgs/
+viz_txt/
