@@ -106,8 +106,10 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
             error_map = (pred - gt*factor)*valid_map
         
         # bins
-        flt = gt[validmask].flatten()
+        flt_gt = gt[validmask].flatten()
+        flt_pred = pred[validmask].flatten()/factor
         bin_hist = bin_np[0].tolist()
+        bins_uni = np.linspace(args.min_depth, args.max_depth, num = args.n_bins).tolist()
         
         #chamfer_distance
         from pytorch3d.loss import chamfer_distance
@@ -177,7 +179,7 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         
         # pred_bins hist
         plt.subplot(4, 3, 7)
-        n, bins_stand, patches = plt.hist(flt, bins = bin_hist, rwidth = 0.9)
+        n, bins_stand, patches = plt.hist(flt_gt, bins = bin_hist, rwidth = 0.95)
         cm = plt.get_cmap("viridis")
         min_value = np.min(bins_stand)
         max_value = np.max(bins_stand)
@@ -185,16 +187,17 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         bins_nom = [x / min_max_stand for x in bins_stand]
         for c, p in zip(bins_nom, patches):
             plt.setp(p, 'facecolor', cm(c))
-        plt.title("Depth hist. with Adabins")
+        plt.title("GT hist. with Adabins")
 
-        # uniform_bins hist
+        # uniform_bins hist n_bins
         plt.subplot(4, 3, 8)
-        n, bins, patches = plt.hist(flt, bins = 64)
+        n, bins, patches = plt.hist(flt_gt, bins = 20, rwidth = 0.95)
         bins_nom = [x / min_max_stand for x in bins]
         for c, p in zip(bins_nom, patches):
             plt.setp(p, 'facecolor', cm(c))
             plt.xlim(min_value, max_value)
-        plt.title("Depth hist. with uniform bins")
+        plt.title("GT hist. with uniform bins(20)")
+        plt.xlim(0.,10.)
         
         # bins hist
         plt.subplot(4, 3, 9)
@@ -204,15 +207,33 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
             plt.setp(p, 'facecolor', cm(c))
         plt.title("Hist. of  Adabins")
         
-        # metrics
+        # pred_bins hist
         plt.subplot(4, 3, 10)
-        plt.text(0.1,0.1,
-                 f"a1: {metric_dict['a1']}\na2: {metric_dict['a2']}\na3: {metric_dict['a3']}\
-                 \nrmse_log: {metric_dict['rmse_log']}\nrmse: {metric_dict['rmse']}", fontsize=16)
-        plt.axis("off")
+        n, bins_stand, patches = plt.hist(flt_pred, bins = bin_hist, rwidth = 0.95)
+        cm = plt.get_cmap("viridis")
+        bins_nom = [x / min_max_stand for x in bins_stand]
+        for c, p in zip(bins_nom, patches):
+            plt.setp(p, 'facecolor', cm(c))
+        plt.title("Pred hist. with Adabins")
+        
+        # uniform_bins hist n_bins
         plt.subplot(4, 3, 11)
-        plt.text(0.1,0.1,
-                 f"log_10: {metric_dict['log_10']}\nabs_rel: {metric_dict['abs_rel']}\nsilog: {metric_dict['silog']}\
+        n, bins, patches = plt.hist(flt_gt, bins = bins_uni, rwidth = 0.95)
+        bins_nom = [x / min_max_stand for x in bins]
+        for c, p in zip(bins_nom, patches):
+            plt.setp(p, 'facecolor', cm(c))
+            plt.xlim(min_value, max_value)
+        plt.title(f"GT hist. with uniform bins({args.n_bins})")
+        plt.xlim(0.,10.)
+        
+        
+        
+        # metrics
+        plt.subplot(4, 3, 12)
+        plt.text(0.1,0.0,
+                 f"a1: {metric_dict['a1']}\na2: {metric_dict['a2']}\na3: {metric_dict['a3']}\
+                 \nrmse_log: {metric_dict['rmse_log']}\nrmse: {metric_dict['rmse']}\
+                 \nlog_10: {metric_dict['log_10']}\nabs_rel: {metric_dict['abs_rel']}\nsilog: {metric_dict['silog']}\
                  \nsq_rel: {metric_dict['sq_rel']}\ncham_dist: {metric_dict['cham_dist']}", fontsize=16)
         plt.axis("off")
         
