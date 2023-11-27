@@ -47,11 +47,18 @@ class DepthDataLoader(object):
                 self.eval_sampler = None
             else:
                 self.eval_sampler = None
-            self.data = DataLoader(self.testing_samples, args.batch_size,
-                                   shuffle=False,
-                                   num_workers=args.num_threads,
-                                   pin_memory=False,
-                                   sampler=self.eval_sampler)
+            if args.viz:
+                self.data = DataLoader(self.testing_samples, args.batch_size,
+                        shuffle=False,
+                        num_workers=args.num_threads,
+                        pin_memory=False,
+                        sampler=self.eval_sampler)
+            else:
+                self.data = DataLoader(self.testing_samples, 1,
+                                    shuffle=False,
+                                    num_workers=args.num_threads,
+                                    pin_memory=False,
+                                    sampler=self.eval_sampler)
 
         elif mode == 'test':
             self.testing_samples = DataLoadPreprocess(args, mode, transform=preprocessing_transforms(mode))
@@ -90,10 +97,13 @@ class DataLoadPreprocess(Dataset):
             if self.args.dataset == 'kitti' and self.args.use_right is True and random.random() > 0.5:
                 image_path = os.path.join(self.args.data_path, remove_leading_slash(sample_path.split()[3]))
                 depth_path = os.path.join(self.args.gt_path, remove_leading_slash(sample_path.split()[4]))
-            else:
+            elif self.args.dataset == "nyu":
                 image_path = os.path.join(self.args.data_path, remove_leading_slash(sample_path.split()[0]))
                 depth_path = os.path.join(self.args.gt_path, remove_leading_slash(sample_path.split()[1]))
-
+            elif self.args.dataset =="sun":
+                image_path = os.path.join(self.args.data_path, remove_leading_slash(sample_path.split()[0]))
+                depth_path = os.path.join(self.args.gt_path, remove_leading_slash(sample_path.split()[1]))
+                
             image = Image.open(image_path)
             depth_gt = Image.open(depth_path)
 
@@ -118,11 +128,13 @@ class DataLoadPreprocess(Dataset):
             image = np.asarray(image, dtype=np.float32) / 255.0
             depth_gt = np.asarray(depth_gt, dtype=np.float32)
             depth_gt = np.expand_dims(depth_gt, axis=2)
-
-            if self.args.dataset == 'nyu':
-                depth_gt = depth_gt / 1000.0
-            else:
+            
+            if self.args.dataset == 'kitti':
                 depth_gt = depth_gt / 256.0
+            elif self.args.dataset == 'nyu':
+                depth_gt = depth_gt / 1000.0
+            elif self.args.dataset == 'sun':
+                depth_gt = depth_gt / 10000.0
 
             image, depth_gt = self.random_crop(image, depth_gt, self.args.input_height, self.args.input_width)
             image, depth_gt = self.train_preprocess(image, depth_gt)
@@ -151,10 +163,12 @@ class DataLoadPreprocess(Dataset):
                 if has_valid_depth:
                     depth_gt = np.asarray(depth_gt, dtype=np.float32)
                     depth_gt = np.expand_dims(depth_gt, axis=2)
-                    if self.args.dataset == 'nyu':
-                        depth_gt = depth_gt / 1000.0
-                    else:
+                    if self.args.eval_dataset == 'kitti':
                         depth_gt = depth_gt / 256.0
+                    elif self.args.eval_dataset == 'nyu':
+                        depth_gt = depth_gt / 1000.0
+                    elif self.args.eval_dataset == 'sun':
+                        depth_gt = depth_gt / 10000.0
 
             if self.args.do_kb_crop is True:
                 height = image.shape[0]

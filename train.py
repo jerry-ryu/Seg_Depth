@@ -22,7 +22,7 @@ from loss import SILogLoss, BinsChamferLoss
 from utils import RunningAverage, colorize
 
 # os.environ['WANDB_MODE'] = 'dryrun'
-PROJECT = "MDE-AdaBins"
+PROJECT = "depth_estimation"
 logging = True
 
 
@@ -117,7 +117,7 @@ def train(model, args, epochs=10, experiment_name="DeepLab", lr=0.0001, root="."
     ###################################### Logging setup #########################################
     print(f"Training {experiment_name}")
 
-    run_id = f"{dt.now().strftime('%d-%h_%H-%M')}-nodebs{args.bs}-tep{epochs}-lr{lr}-wd{args.wd}-{uuid.uuid4()}"
+    run_id = f"{dt.now().strftime('%d-%h_%H-%M')}-nodebs{args.bs}-tep{epochs}-lr{lr}-wd{args.wd}"
     name = f"{experiment_name}_{run_id}"
     should_write = ((not args.distributed) or args.rank == 0)
     should_log = should_write and logging
@@ -324,6 +324,7 @@ if __name__ == '__main__':
 
     parser.add_argument("--workers", default=11, type=int, help="Number of workers for data loading")
     parser.add_argument("--dataset", default='nyu', type=str, help="Dataset to train on")
+    parser.add_argument("--eval_dataset", default='nyu', type=str, help="Dataset to eval on")
 
     parser.add_argument("--data_path", default='../dataset/nyu/', type=str,
                         help="path to dataset")
@@ -361,6 +362,7 @@ if __name__ == '__main__':
     parser.add_argument('--eigen_crop', default=True, help='if set, crops according to Eigen NIPS14',
                         action='store_true')
     parser.add_argument('--garg_crop', help='if set, crops according to Garg  ECCV16', action='store_true')
+    parser.add_argument('--viz', help='vizualization config', action='store_true')
 
     if sys.argv.__len__() == 2:
         arg_filename_with_prefix = '@' + sys.argv[1]
