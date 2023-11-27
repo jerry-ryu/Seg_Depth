@@ -110,6 +110,7 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         flt_pred = pred[validmask].flatten()/factor
         bin_hist = bin_np[0].tolist()
         bins_uni = np.linspace(args.min_depth, args.max_depth, num = args.n_bins).tolist()
+        bins_uni_20 = np.linspace(args.min_depth, args.max_depth, num = 20).tolist()
         
         #chamfer_distance
         from pytorch3d.loss import chamfer_distance
@@ -191,7 +192,7 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
 
         # uniform_bins hist n_bins
         plt.subplot(4, 3, 8)
-        n, bins, patches = plt.hist(flt_gt, bins = 20, rwidth = 0.95)
+        n, bins, patches = plt.hist(flt_gt, bins = bins_uni_20, rwidth = 0.95)
         bins_nom = [x / min_max_stand for x in bins]
         for c, p in zip(bins_nom, patches):
             plt.setp(p, 'facecolor', cm(c))
@@ -300,7 +301,7 @@ def eval(model, test_loader, args, gpus=None, ):
             # final[final > args.max_depth] = args.max_depth
             final[np.isinf(final)] = args.max_depth
             final[np.isnan(final)] = args.min_depth
-
+            
             gt = gt.squeeze().cpu().numpy()
             valid_mask = np.logical_and(gt > args.min_depth, gt < args.max_depth)
 
@@ -399,6 +400,8 @@ if __name__ == '__main__':
     parser.add_argument('--eigen_crop', help='if set, crops according to Eigen NIPS14', action='store_true')
     parser.add_argument('--garg_crop', help='if set, crops according to Garg  ECCV16', action='store_true')
     parser.add_argument('--do_kb_crop', help='Use kitti benchmark cropping', action='store_true')
+    parser.add_argument('--viz', help='vizualization config', action='store_true')
+    parser.add_argument("--eval_dataset", default='nyu', type=str, help="Dataset to eval on")
     parser.add_argument('--bs', default=16, type=int, help='batch size')
     parser.add_argument("--workers", default=11, type=int, help="Number of workers for data loading")
     parser.add_argument("--dataset_kind", default=11, type=str, help="dataset category for EDA")
