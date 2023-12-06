@@ -44,3 +44,31 @@ class BinsChamferLoss(nn.Module):  # Bin centers regularizer used in AdaBins pap
 
         loss, _ = chamfer_distance(x=input_points, y=target_points, y_lengths=target_lengths)
         return loss
+
+class CrossEntropyLoss(nn.Module):  # Main loss function used in AdaBins paper
+    def __init__(self, ignore_label = 0, weight = None):
+        super(CrossEntropyLoss, self).__init__()
+        self.name = 'CrossEntropy'
+        self.ignore_label = ignore_label
+        self.criterion = nn.CrossEntropyLoss(
+            weight=weight,
+            ignore_index=ignore_label
+        )
+
+    def _forward(self, score, target):
+        target = torch.squeeze(target)
+        ph, pw = score.size(2), score.size(3)
+        h, w = target.size(1), target.size(2)
+        if ph != h or pw != w:
+            score = nn.functional.interpolate(input=score, size=(h, w), mode='bilinear', align_corners=True)
+
+        loss = self.criterion(score, target)
+
+        return loss
+
+    def forward(self, score, target):
+        score = [score]
+        weights = [1]
+        assert len(weights) == len(score)
+
+        return sum([w * self._forward(x, target) for (w, x) in zip(weights, score)])

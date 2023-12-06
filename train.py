@@ -18,7 +18,7 @@ import model_io
 import models
 import utils
 from dataloader import DepthDataLoader
-from loss import SILogLoss, BinsChamferLoss
+from loss import SILogLoss, BinsChamferLoss, CrossEntropyLoss
 from utils import RunningAverage, colorize
 
 # os.environ['WANDB_MODE'] = 'dryrun'
@@ -71,7 +71,7 @@ def main_worker(gpu, ngpus_per_node, args):
     ###################################### Load model ##############################################
 
     model = models.UnetAdaptiveBins.build(n_bins=args.n_bins, min_val=args.min_depth, max_val=args.max_depth,
-                                          norm=args.norm)
+                                          norm=args.norm, seg_class = args.seg_class)
 
     ################################################################################################
 
@@ -135,6 +135,7 @@ def train(model, args, epochs=10, experiment_name="DeepLab", lr=0.0001, root="."
     ###################################### losses ##############################################
     criterion_ueff = SILogLoss()
     criterion_bins = BinsChamferLoss() if args.chamfer else None
+    criterion_seg = CrossEntropyLoss()
     ################################################################################################
 
     model.train()
@@ -180,11 +181,13 @@ def train(model, args, epochs=10, experiment_name="DeepLab", lr=0.0001, root="."
 
             img = batch['image'].to(device)
             depth = batch['depth'].to(device)
+            seg = batch['seg'].to(device)
+            
             if 'has_valid_depth' in batch:
                 if not batch['has_valid_depth']:
                     continue
 
-            bin_edges, pred = model(img)
+            bin_edges, pred, pred_seg = model(img)
 
             mask = depth > args.min_depth
             l_dense = criterion_ueff(pred, depth, mask=mask.to(torch.bool), interpolate=True)
@@ -193,14 +196,23 @@ def train(model, args, epochs=10, experiment_name="DeepLab", lr=0.0001, root="."
                 l_chamfer = criterion_bins(bin_edges, depth)
             else:
                 l_chamfer = torch.Tensor([0]).to(img.device)
-
-            loss = l_dense + args.w_chamfer * l_chamfer
+            
+            if args.w_seg_iter > epoch:
+                l_seg = criterion_seg(pred_seg, seg)
+                
+                loss = l_dense + args.w_chamfer * l_chamfer + args.w_seg * l_seg
+            else:
+                loss = l_dense + args.w_chamfer * l_chamfer
+                l_seg = np.array([0])
+            
             loss.backward()
             nn.utils.clip_grad_norm_(model.parameters(), 0.1)  # optional
             optimizer.step()
             if should_log and step % 5 == 0:
                 wandb.log({f"Train/{criterion_ueff.name}": l_dense.item()}, step=step)
                 wandb.log({f"Train/{criterion_bins.name}": l_chamfer.item()}, step=step)
+                wandb.log({f"Train/{criterion_seg.name}": l_seg.item()}, step=step)
+                wandb.log({f"Train/Loss": loss.item()}, step=step)
 
             step += 1
             scheduler.step()
@@ -247,7 +259,7 @@ def validate(args, model, test_loader, criterion_ueff, epoch, epochs, device='cp
                 if not batch['has_valid_depth']:
                     continue
             depth = depth.squeeze().unsqueeze(0).unsqueeze(0)
-            bins, pred = model(img)
+            bins, pred, _ = model(img)
 
             mask = depth > args.min_depth
             l_dense = criterion_ueff(pred, depth, mask=mask.to(torch.bool), interpolate=True)
@@ -363,6 +375,9 @@ if __name__ == '__main__':
                         action='store_true')
     parser.add_argument('--garg_crop', help='if set, crops according to Garg  ECCV16', action='store_true')
     parser.add_argument('--viz', help='vizualization config', action='store_true')
+    parser.add_argument('--seg_class', type=int, help='segmentation class', default=37)
+    parser.add_argument('--w_seg', type=float, help='segmentation class', default=0.2)
+    parser.add_argument('--w_seg_iter', type=float, help='segmentation class', default=25)
 
     if sys.argv.__len__() == 2:
         arg_filename_with_prefix = '@' + sys.argv[1]
