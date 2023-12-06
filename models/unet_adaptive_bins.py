@@ -75,7 +75,7 @@ class Encoder(nn.Module):
 
 
 class UnetAdaptiveBins(nn.Module):
-    def __init__(self, backend, n_bins=100, min_val=0.1, max_val=10, norm='linear'):
+    def __init__(self, backend, n_bins=100, min_val=0.1, max_val=10, norm='linear', seg_class = 37):
         super(UnetAdaptiveBins, self).__init__()
         self.num_classes = n_bins
         self.min_val = min_val
@@ -83,7 +83,7 @@ class UnetAdaptiveBins(nn.Module):
         self.encoder = Encoder(backend)
         self.adaptive_bins_layer = mViT(128, n_query_channels=128, patch_size=16,
                                         dim_out=n_bins,
-                                        embedding_dim=128, norm=norm)
+                                        embedding_dim=128, norm=norm, seg_class=seg_class)
 
         self.decoder = DecoderBN(num_classes=128)
         self.conv_out = nn.Sequential(nn.Conv2d(128, n_bins, kernel_size=1, stride=1, padding=0),
@@ -91,7 +91,7 @@ class UnetAdaptiveBins(nn.Module):
 
     def forward(self, x, **kwargs):
         unet_out = self.decoder(self.encoder(x), **kwargs)
-        bin_widths_normed, range_attention_maps = self.adaptive_bins_layer(unet_out)
+        bin_widths_normed, range_attention_maps, seg_range_attention_maps = self.adaptive_bins_layer(unet_out)
         out = self.conv_out(range_attention_maps)
 
         # Post process
@@ -107,8 +107,11 @@ class UnetAdaptiveBins(nn.Module):
         centers = centers.view(n, dout, 1, 1)
 
         pred = torch.sum(out * centers, dim=1, keepdim=True)
+        # pred_seg = nn.Softmax(dim=1)(seg_range_attention_maps)
+        # pred_seg = torch.argmax(pred_seg, dim=1)
+        pred_seg = seg_range_attention_maps
 
-        return bin_edges, pred
+        return bin_edges, pred, pred_seg
 
     def get_1x_lr_params(self):  # lr/10 learning rate
         return self.encoder.parameters()
@@ -141,5 +144,5 @@ class UnetAdaptiveBins(nn.Module):
 if __name__ == '__main__':
     model = UnetAdaptiveBins.build(100)
     x = torch.rand(2, 3, 480, 640)
-    bins, pred = model(x)
-    print(bins.shape, pred.shape)
+    bins, pred, pred_seg = model(x)
+    print(bins.shape, pred.shape, pred_seg.shape)
