@@ -40,7 +40,7 @@ def compute_errors(gt, pred):
     return dict(a1=a1, a2=a2, a3=a3, abs_rel=abs_rel, rmse=rmse, log_10=log_10, rmse_log=rmse_log,
                 silog=silog, sq_rel=sq_rel)
 
-def viz(impath, img, final, gt, validmask, bin_np, metric):
+def viz(impath, img, final, gt, validmask, bin_np, metric, seg, seg_gt):
     
     if args.save_dir is not None:
         if args.dataset == 'nyu':
@@ -135,51 +135,54 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         metric_dict["cham_dist"] = cham_dist.item()
         metric_dict["path"] = pred_path
         
+        
+        
+        
         # plot
         if args.dataset == 'nyu':
-            fig = plt.figure(figsize= (15,14))
+            fig = plt.figure(figsize= (15,20))
         else:
             fig = plt.figure(figsize= (50,28))
         
         
         # RGB
-        plt.subplot(4, 3, 1)
+        plt.subplot(5, 3, 1)
         plt.imshow((img * 255).astype(np.uint8))
         plt.title("RGB image")
 
         # pred_norm
-        plt.subplot(4, 3, 2)
+        plt.subplot(5, 3, 2)
         plt.imshow(pred, cmap=pred_cmap, norm=pred_norm)
         plt.colorbar()
         plt.title(f"Pred depth_norm({norm_vmin},{norm_vmax})")
 
         # GT_norm
-        plt.subplot(4, 3, 3)
+        plt.subplot(5, 3, 3)
         plt.imshow(gt_map, cmap=gt_cmap, norm=gt_norm)
         plt.colorbar()
         plt.title(f"Ground Truth_norm({norm_vmin},{norm_vmax})")
 
         # Error_map
-        plt.subplot(4, 3, 4)
+        plt.subplot(5, 3, 4)
         plt.imshow(error_map, cmap=error_cmap, norm=error_norm)
         plt.colorbar()
         plt.title("Error map (pred - gt)")
         plt.text
 
         # pred
-        plt.subplot(4, 3, 5)
+        plt.subplot(5, 3, 5)
         plt.imshow(pred, cmap=pred_cmap)
         plt.colorbar()
         plt.title("Pred depth")
 
         # GT
-        plt.subplot(4, 3, 6)
+        plt.subplot(5, 3, 6)
         plt.imshow(gt_map, cmap=gt_cmap)
         plt.colorbar()
         plt.title("Ground Truth")
         
         # pred_bins hist
-        plt.subplot(4, 3, 7)
+        plt.subplot(5, 3, 7)
         n, bins_stand, patches = plt.hist(flt_gt, bins = bin_hist, rwidth = 0.95)
         cm = plt.get_cmap("viridis")
         min_value = np.min(bins_stand)
@@ -191,7 +194,7 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         plt.title("GT hist. with Adabins")
 
         # uniform_bins hist n_bins
-        plt.subplot(4, 3, 8)
+        plt.subplot(5, 3, 8)
         n, bins, patches = plt.hist(flt_gt, bins = bins_uni_20, rwidth = 0.95)
         bins_nom = [x / min_max_stand for x in bins]
         for c, p in zip(bins_nom, patches):
@@ -201,7 +204,7 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         plt.xlim(0.,10.)
         
         # bins hist
-        plt.subplot(4, 3, 9)
+        plt.subplot(5, 3, 9)
         n, bins, patches = plt.hist(bin_hist, bins=20)
         bins_nom = [x / min_max_stand for x in bins]
         for c, p in zip(bins_nom, patches):
@@ -209,7 +212,7 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         plt.title("Hist. of  Adabins")
         
         # pred_bins hist
-        plt.subplot(4, 3, 10)
+        plt.subplot(5, 3, 10)
         n, bins_stand, patches = plt.hist(flt_pred, bins = bin_hist, rwidth = 0.95)
         cm = plt.get_cmap("viridis")
         bins_nom = [x / min_max_stand for x in bins_stand]
@@ -218,7 +221,7 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         plt.title("Pred hist. with Adabins")
         
         # uniform_bins hist n_bins
-        plt.subplot(4, 3, 11)
+        plt.subplot(5, 3, 11)
         n, bins, patches = plt.hist(flt_gt, bins = bins_uni, rwidth = 0.95)
         bins_nom = [x / min_max_stand for x in bins]
         for c, p in zip(bins_nom, patches):
@@ -230,13 +233,23 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         
         
         # metrics
-        plt.subplot(4, 3, 12)
+        plt.subplot(5, 3, 12)
         plt.text(0.1,0.0,
                  f"a1: {metric_dict['a1']}\na2: {metric_dict['a2']}\na3: {metric_dict['a3']}\
                  \nrmse_log: {metric_dict['rmse_log']}\nrmse: {metric_dict['rmse']}\
                  \nlog_10: {metric_dict['log_10']}\nabs_rel: {metric_dict['abs_rel']}\nsilog: {metric_dict['silog']}\
                  \nsq_rel: {metric_dict['sq_rel']}\ncham_dist: {metric_dict['cham_dist']}", fontsize=16)
         plt.axis("off")
+        
+        # pred_seg
+        plt.subplot(5, 3, 14)
+        plt.imshow(seg)
+        plt.title("Pred seg")
+        
+        #gt_seg
+        plt.subplot(5, 3, 15)
+        plt.imshow(seg_gt)
+        plt.title("GT seg")
         
         # save
         if not os.path.exists(os.path.dirname(pred_path)):
@@ -254,7 +267,7 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
 #     return x * std + mean
 #
 def predict_tta(model, image, args):
-    bins, pred = model(image)
+    bins, pred, pred_seg = model(image)
     #     pred = utils.depth_norm(pred)
     #     pred = nn.functional.interpolate(pred, depth.shape[-2:], mode='bilinear', align_corners=True)
     #     pred = np.clip(pred.cpu().numpy(), 10, 1000)/100.
@@ -262,14 +275,19 @@ def predict_tta(model, image, args):
 
     image = torch.Tensor(np.array(image.cpu().numpy())[..., ::-1].copy()).to(device)
 
-    pred_lr = model(image)[-1]
+    pred_lr = model(image)[-2]
     #     pred_lr = utils.depth_norm(pred_lr)
     #     pred_lr = nn.functional.interpolate(pred_lr, depth.shape[-2:], mode='bilinear', align_corners=True)
     #     pred_lr = np.clip(pred_lr.cpu().numpy()[...,::-1], 10, 1000)/100.
     pred_lr = np.clip(pred_lr.cpu().numpy()[..., ::-1], args.min_depth, args.max_depth)
     final = 0.5 * (pred + pred_lr)
     final = nn.functional.interpolate(torch.Tensor(final), image.shape[-2:], mode='bilinear', align_corners=True)
-    return torch.Tensor(final), bins
+    
+    pred_seg = nn.Softmax(dim=1)(pred_seg)
+    pred_seg = torch.argmax(pred_seg, dim=1)
+    pred_seg = pred_seg.cpu().numpy()
+    
+    return torch.Tensor(final), bins, pred_seg
 
 
 def eval(model, test_loader, args, gpus=None, ):
@@ -294,7 +312,9 @@ def eval(model, test_loader, args, gpus=None, ):
             batch_size = len(batch['focal'])
             image = batch['image'].to(device)
             gt = batch['depth'].to(device)
-            final, bins = predict_tta(model, image, args)
+            seg_gt = batch['seg'].to(device)
+            
+            final, bins, seg = predict_tta(model, image, args)
             final = final.squeeze().cpu().numpy()
 
             # final[final < args.min_depth] = args.min_depth
@@ -325,17 +345,23 @@ def eval(model, test_loader, args, gpus=None, ):
             #             final = final[valid_mask]
             image_np = image.cpu().numpy()
             bins_np = bins.cpu().numpy()
+            seg_gt_np = seg_gt.cpu().numpy()
+            
             gt_s = np.split(gt, batch_size, axis = 0)
             final_s = np.split(final, batch_size, axis = 0)
             valid_mask_s = np.split(valid_mask, batch_size, axis = 0)
             image_s = np.split(image_np, batch_size, axis = 0)
             bins_s = np.split(bins_np, batch_size, axis = 0)
+            seg_s = np.split(seg, batch_size, axis = 0)
+            seg_gt_s = np.split(seg_gt_np, batch_size, axis = 0)
             
-            for gt_i, final_i, valid_mask_i, image_i, bins_i, path in zip(gt_s, final_s, valid_mask_s, image_s, bins_s, batch["image_path"]):
-                metric = compute_errors(gt_i[valid_mask_i], final_i[valid_mask_i])
-                metrics.update(metric)
-                metric_dict = viz(path, image_i, final_i.squeeze(), gt_i.squeeze(), valid_mask_i.squeeze(), bins_i, metric)
-                df = pd.concat([df, pd.DataFrame.from_dict([metric_dict])])
+            for gt_i, final_i, valid_mask_i, image_i, bins_i, path, seg_i, seg_gt_i in \
+                zip(gt_s, final_s, valid_mask_s, image_s, bins_s, batch["image_path"],seg_s, seg_gt_s):
+                    metric = compute_errors(gt_i[valid_mask_i], final_i[valid_mask_i])
+                    metrics.update(metric)
+                    metric_dict = viz(path, image_i, final_i.squeeze(), gt_i.squeeze(), \
+                        valid_mask_i.squeeze(), bins_i, metric, seg_i.squeeze(), seg_gt_i.squeeze())
+                    df = pd.concat([df, pd.DataFrame.from_dict([metric_dict])])
                 
     metrics = {k: round(v, 3) for k, v in metrics.get_value().items()}
     print(f"Metrics: {metrics}")
