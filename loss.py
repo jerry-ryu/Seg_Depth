@@ -44,3 +44,22 @@ class BinsChamferLoss(nn.Module):  # Bin centers regularizer used in AdaBins pap
 
         loss, _ = chamfer_distance(x=input_points, y=target_points, y_lengths=target_lengths)
         return loss
+    
+class FreqLoss(nn.Module):  # freqeuncy loss
+    def __init__(self):
+        super().__init__()
+        self.name = "Freq_MSELoss"
+
+    def forward(self, pred, target, norm=None, interpolate=True):
+        if interpolate:
+            pred = nn.functional.interpolate(pred, target.shape[-2:], mode='bilinear', align_corners=True)
+        pred_fft = torch.fft.fft2(pred, norm = norm)
+        target_fft = torch.fft.fft2(target, norm = norm)
+        
+        pred_mag = torch.abs(pred_fft)
+        target_mag = torch.abs(target_fft)
+        
+        loss = nn.MSELoss()(pred_mag, target_mag)
+        
+        return loss
+
