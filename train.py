@@ -18,7 +18,7 @@ import model_io
 import models
 import utils
 from dataloader import DepthDataLoader
-from loss import SILogLoss, BinsChamferLoss, FreqLoss
+from loss import SILogLoss, BinsChamferLoss, FreqMSELoss, FocalFrequencyLoss
 from utils import RunningAverage, colorize
 
 # os.environ['WANDB_MODE'] = 'dryrun'
@@ -135,7 +135,12 @@ def train(model, args, epochs=10, experiment_name="DeepLab", lr=0.0001, root="."
     ###################################### losses ##############################################
     criterion_ueff = SILogLoss()
     criterion_bins = BinsChamferLoss() if args.chamfer else None
-    cirterion_freq = FreqLoss()
+    if args.frequency_loss == "FreqMSELoss":
+        cirterion_freq = FreqMSELoss()
+        w_freq = 32500.0
+    else:
+        cirterion_freq = FocalFrequencyLoss()
+        w_freq = 1.0
     ################################################################################################
 
     model.train()
@@ -195,7 +200,7 @@ def train(model, args, epochs=10, experiment_name="DeepLab", lr=0.0001, root="."
             else:
                 l_chamfer = torch.Tensor([0]).to(img.device)
                 
-            l_freq = cirterion_freq(pred, depth) / 32500.
+            l_freq = cirterion_freq(pred, depth) / w_freq
 
             loss = l_dense + args.w_chamfer * l_chamfer + l_freq 
             loss.backward()
@@ -367,6 +372,8 @@ if __name__ == '__main__':
                         action='store_true')
     parser.add_argument('--garg_crop', help='if set, crops according to Garg  ECCV16', action='store_true')
     parser.add_argument('--viz', help='vizualization config', action='store_true')
+    parser.add_argument("--frequency_loss", default="linear", type=str, help="Type of frequency loss",
+                        choices=['FreqMSELoss', 'FocalFrequencyLoss'])
 
     if sys.argv.__len__() == 2:
         arg_filename_with_prefix = '@' + sys.argv[1]
