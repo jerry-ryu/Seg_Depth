@@ -55,6 +55,18 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
             else:
                 error_vmin = -1000
                 error_vmax = 1000
+        elif args.dataset == 'sun':
+            if impath[0] == '/':
+                impath = impath[1:]
+            factor = 10000.
+            norm_vmin = 0
+            norm_vmax = 50000
+            if args.dataset_kind == 'test':
+                error_vmin = -2000
+                error_vmax = 2000
+            else:
+                error_vmin = -1000
+                error_vmax = 1000
         else:
             dpath = impath.split('/')
             impath = dpath[1] + "_" + dpath[-1]
@@ -136,10 +148,12 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         metric_dict["path"] = pred_path
         
         # plot
-        if args.dataset == 'nyu':
-            fig = plt.figure(figsize= (15,14))
-        else:
+        if args.dataset == 'kitti':
             fig = plt.figure(figsize= (50,28))
+        elif args.dataset == 'sun':
+            fig = plt.figure(figsize= (15,18))
+        else:
+            fig = plt.figure(figsize= (15,14))
         
         
         # RGB
@@ -243,6 +257,26 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
             os.makedirs(os.path.dirname(pred_path))
         plt.savefig(pred_path)
         plt.close()
+        
+        if args.dataset == 'sun':
+            fig = plt.figure(figsize= (4,6))
+            
+            pred_fft = np.fft.fft2(pred/factor)
+            pred_fft = np.fft.ifftshift(pred_fft)
+            pred_fft = 20*np.log(np.abs(pred_fft))
+            plt.imshow(np.abs(pred_fft))
+            pred_fft_path = pred_path.replace(".jpg", "_pred_freq.jpg")
+            plt.savefig(pred_fft_path)
+            plt.close()
+            
+            gt_fft = np.fft.fft2(gt_map/factor)
+            gt_fft = np.fft.ifftshift(gt_fft)
+            gt_fft = 20*np.log(np.abs(gt_fft))
+            plt.imshow(np.abs(gt_fft))
+            gt_fft_path = pred_path.replace(".jpg", "_gt_freq.jpg")
+            plt.savefig(gt_fft_path)
+            plt.close()
+            
         
     return metric_dict
         
@@ -392,7 +426,7 @@ if __name__ == '__main__':
     parser.add_argument('--filenames_file_eval',
                         default="./train_test_inputs/nyudepthv2_test_files_with_gt.txt",
                         type=str, help='path to the filenames text file for online evaluation')
-    parser.add_argument('--checkpoint_path', '--checkpoint-path', type=str, required=True,
+    parser.add_argument('--checkpoint_path', type=str, required=True,
                        help="checkpoint file to use for prediction")
 
     parser.add_argument('--min_depth_eval', type=float, help='minimum depth for evaluation', default=1e-3)
