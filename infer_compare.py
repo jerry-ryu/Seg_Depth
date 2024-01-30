@@ -259,20 +259,38 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         plt.close()
         
         if args.dataset == 'sun':
-            fig = plt.figure(figsize= (4,6))
-            
-            pred_fft = np.fft.fft2(pred/factor)
+            fig = plt.figure(figsize= (8,8))
+        
+            # pred freq.
+            plt.subplot(2, 2, 1)
+            pred_fft = np.fft.fft2(pred)
             pred_fft = np.fft.ifftshift(pred_fft)
-            pred_fft = 20*np.log(np.abs(pred_fft))
-            plt.imshow(np.abs(pred_fft))
-            pred_fft_path = pred_path.replace(".jpg", "_pred_freq.jpg")
-            plt.savefig(pred_fft_path)
-            plt.close()
-            
-            gt_fft = np.fft.fft2(gt_map/factor)
+            pred_fft_log = 20*np.log(np.abs(pred_fft))
+            plt.imshow(pred_fft_log)
+            plt.colorbar()
+            plt.title("Pred freq.")
+
+            # pred freq.
+            plt.subplot(2, 2, 2)
+            gt_fft = np.fft.fft2(gt_map)
             gt_fft = np.fft.ifftshift(gt_fft)
-            gt_fft = 20*np.log(np.abs(gt_fft))
-            plt.imshow(np.abs(gt_fft))
+            gt_fft_log = 20*np.log(np.abs(gt_fft))
+            plt.imshow(gt_fft_log)
+            plt.colorbar()
+            plt.title("GT freq.")
+            
+            # freq error log
+            plt.subplot(2, 2, 3)
+            plt.imshow(gt_fft_log - pred_fft_log)
+            plt.colorbar()
+            plt.title("freq error (log, gt - pred)")
+            
+            # freq error log
+            plt.subplot(2, 2, 4)
+            plt.imshow(gt_fft - pred_fft)
+            plt.colorbar()
+            plt.title("freq error (gt - pred)")
+            
             gt_fft_path = pred_path.replace(".jpg", "_gt_freq.jpg")
             plt.savefig(gt_fft_path)
             plt.close()
@@ -354,7 +372,7 @@ def eval(model, test_loader, args, gpus=None, ):
                     else:
                         eval_mask[:,45:471, 41:601] = 1
                         
-            valid_mask = np.logical_and(valid_mask, eval_mask)
+                valid_mask = np.logical_and(valid_mask, eval_mask)
             #             gt = gt[valid_mask]
             #             final = final[valid_mask]
             image_np = image.cpu().numpy()
