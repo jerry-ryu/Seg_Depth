@@ -287,7 +287,7 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
             
             # freq error log
             plt.subplot(2, 2, 4)
-            plt.imshow(gt_fft - pred_fft)
+            plt.imshow(np.abs(gt_fft) - np.abs(pred_fft))
             plt.colorbar()
             plt.title("freq error (gt - pred)")
             
