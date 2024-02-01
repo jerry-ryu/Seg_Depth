@@ -259,10 +259,10 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
         plt.close()
         
         if args.dataset == 'sun':
-            fig = plt.figure(figsize= (8,8))
+            fig = plt.figure(figsize= (12,8))
         
             # pred freq.
-            plt.subplot(2, 2, 1)
+            plt.subplot(2, 3, 1)
             pred_fft = np.fft.fft2(pred)
             pred_fft = np.fft.ifftshift(pred_fft)
             pred_fft_log = 20*np.log(np.abs(pred_fft))
@@ -271,7 +271,7 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
             plt.title("Pred freq.")
 
             # pred freq.
-            plt.subplot(2, 2, 2)
+            plt.subplot(2, 3, 2)
             gt_fft = np.fft.fft2(gt_map)
             gt_fft = np.fft.ifftshift(gt_fft)
             gt_fft_log = 20*np.log(np.abs(gt_fft))
@@ -280,16 +280,37 @@ def viz(impath, img, final, gt, validmask, bin_np, metric):
             plt.title("GT freq.")
             
             # freq error log
-            plt.subplot(2, 2, 3)
+            plt.subplot(2, 3, 3)
             plt.imshow(gt_fft_log - pred_fft_log)
             plt.colorbar()
             plt.title("freq error (log, gt - pred)")
             
-            # freq error log
-            plt.subplot(2, 2, 4)
-            plt.imshow(np.abs(gt_fft) - np.abs(pred_fft))
+            # pahse error log
+            plt.subplot(2, 3, 4)
+            plt.imshow(np.angle(gt_fft)-np.angle(pred_fft))
             plt.colorbar()
-            plt.title("freq error (gt - pred)")
+            plt.title("phase error map")
+            
+            # freq error log
+            plt.subplot(2, 3, 5)
+            
+            from loss import FreqMSELoss, FocalFrequencyLoss
+            
+            pred_torch = torch.from_numpy(pred.astype(np.float32))
+            pred_torch = torch.unsqueeze(pred_torch, 0 )
+            pred_torch = torch.unsqueeze(pred_torch, 0)
+            gt_map = torch.from_numpy(gt_map.astype(np.float32))
+            gt_map = torch.unsqueeze(gt_map, 0)
+            gt_map = torch.unsqueeze(gt_map, 0)
+            mse = FreqMSELoss()(pred_torch,gt_map)
+            matrix = torch.ones(gt_map.size())
+            focal = FocalFrequencyLoss()(pred_torch,gt_map, matrix = matrix)
+            
+            mse = mse.item()
+            focal = focal.item()            
+            
+            plt.text(0.1,0.0, f"mse: {mse/32500.0}\nfocal: {focal}\n", fontsize=16)
+            plt.axis("off")
             
             gt_fft_path = pred_path.replace(".jpg", "_gt_freq.jpg")
             plt.savefig(gt_fft_path)
